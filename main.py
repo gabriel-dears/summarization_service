@@ -9,11 +9,9 @@ app = FastAPI()
 # Load Hugging Face summarization model (using BART)
 summarizer = pipeline("summarization", model="facebook/bart-large-cnn", device=-1)  # -1 for CPU, 0 for GPU
 
-
 # Define a request model for the text to be processed
 class TextRequest(BaseModel):
     text: str
-    top_k: int = 3  # Number of top summaries to return (you can modify as per your needs)
 
 
 # Define the response model
@@ -29,20 +27,22 @@ async def process_text(request: TextRequest):
         if not request.text.strip():
             raise HTTPException(status_code=400, detail="Input text cannot be empty")
 
+        # Adjust max_length to be smaller than the input length to avoid the max_length warning
+        input_length = len(request.text.split())  # Count words in the input text
+
         # Summarize the provided text (you can adjust max_length, min_length as per your requirements)
         summaries = summarizer(
             request.text,
-            max_length=200,  # Increase max length to allow for a more complete summary
-            min_length=50,   # Ensure a minimum summary length
-            do_sample=False,
-            num_beams=5,  # Use beam search for more coherent summaries
-            top_k=request.top_k
+            max_length=input_length,  # Adjust max_length based on input size
+            min_length=30,  # Ensure a minimum summary length
+            do_sample=False,  # Disable sampling (use beam search instead)
+            num_beams=5  # Use beam search for more coherent summaries
         )
 
         # Extract the summary texts
         summarized_texts = [summary['summary_text'] for summary in summaries]
 
-        # Return the summaries based on the top_k parameter
+        # Return the summaries
         return TextResponse(summaries=summarized_texts)
 
     except Exception as e:
